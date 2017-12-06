@@ -1,0 +1,12 @@
+# ignore pickle files 
+*.pickle
+*.pkl
+
+# ignore build files
+*.pyc
+*.egg-info/
+__pycache__/
+
+# virtual env
+venv/
+env/
