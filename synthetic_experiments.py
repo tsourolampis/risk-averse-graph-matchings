@@ -1,6 +1,5 @@
-from hypergraphs import hypergraph_matchings as hm
-from hypergraphs import graph_generator as gg
-# import pickle
+from risk_averse_matching import hypergraph_matchings as hm
+from risk_averse_matching import graph_generator as gg
 import os
 import time
 

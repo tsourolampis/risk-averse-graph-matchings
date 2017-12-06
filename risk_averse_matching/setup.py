@@ -1,8 +1,8 @@
 from setuptools import setup
 
-setup(name='risk-averse-matching',
+setup(name='risk_averse_matching',
       version='0.1dev',
-      packages=['risk-averse-matching',],
+      packages=['risk_averse_matching',],
       long_description='Second iteration of bounded-variance matching module',
       license='All Rights Reserved',
       install_requires=[
