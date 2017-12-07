@@ -2,6 +2,7 @@ from risk_averse_matching import hypergraph_matchings as hm
 from risk_averse_matching import graph_generator as gg
 import os
 import time
+import pickle
 
 def parse(filename):
     return filename.split('-')
@@ -86,7 +87,9 @@ def run_experiment(graph, intervals, edge_distrib):
 
 def main():
     intervals = 20
-    experiments = 4 # number of samples
+    g_experiments = 1 # number of samples
+    p1_experiments = 1 # number of samples
+    p2_experiments = 10 # number of samples
 
     graphs = gen_graph_strings() # all combinations of graph parameters
     # total iterations = graph types w/o inorder and inverse param + graph types w/ inorder and inverse param
@@ -97,13 +100,13 @@ def main():
     total_time = 0
     for g_idx, graph_type in enumerate(graphs):
         g, e, p1, p2 = parse(graph_type) # graph parameters
-        for g_sample in range(experiments):
+        for g_sample in range(g_experiments):
             g_param, _, _ = gen_params(graph_type=g)
             graph = gg.gen_graph(g, g_param)
-            for p1_sample in range(experiments):
+            for p1_sample in range(p1_experiments):
                 _, p1_param, _ = gen_params(edge_distrib=e, param1_distrib=p1)
                 graph_p1 = gg.gen_attrib(graph, e, param1_distrib=p1, param1=p1_param)
-                for p2_sample in range(experiments):
+                for p2_sample in range(p2_experiments):
                     start = time.time()
                     # skip 'inorder' and 'inverse' after 1 iteration
                     if (p2 == 'inorder' or p2 == 'inverse') and p2_sample > 0:
@@ -125,9 +128,9 @@ def main():
                     print('Finished finding bounded variance matchings')
                     mkdir_subdirec(path)
                     f = path + 'max_stats.pkl'
-                    hm.write_pickle(max_stats, f)
+                    pickle.dump(max_stats, open(f, 'wb'))
                     f = path + 'bv_stats.pkl'
-                    hm.write_pickle(bv_stats, f)
+                    pickle.dump(bv_stats, open(f, 'wb'))
 
                     t = time.time() - start
                     total_time += t

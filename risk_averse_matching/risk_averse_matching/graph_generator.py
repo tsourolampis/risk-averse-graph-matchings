@@ -75,7 +75,7 @@ def __bern_generator(weight, weight_params, prob, prob_params, size, edge_list=N
                 total = sum(np.sqrt(weight) for weight in weight_vals)
                 prob_vals = [weight**c/total for weight in weight_vals]
             elif not weight_vals and edge_list:
-                c = 0.5
+                c = 1
                 total = sum(np.sqrt(edge['weight']) for edge in edge_list)
                 prob_vals = [edge['weight']**c/total for edge in edge_list]
             else:
@@ -83,11 +83,11 @@ def __bern_generator(weight, weight_params, prob, prob_params, size, edge_list=N
 
         elif prob == 'inverse':
             if weight_vals:
-                c = 2 if weight == UAR else 2
+                c = 2 if weight == UAR else 0.5
                 total = sum(np.sqrt(weight) for weight in weight_vals)
                 prob_vals = [(1 - (weight**c/total)) for weight in weight_vals]
             elif not weight_vals and edge_list:
-                c = 0.5
+                c = 1
                 total = sum(np.sqrt(edge['weight']) for edge in edge_list)
                 prob_vals = [(1- (edge['weight']**c/total)) for edge in edge_list]
             else:
