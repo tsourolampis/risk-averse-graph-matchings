@@ -15,8 +15,8 @@ def mkdir_subdirec(sub_direc):
 def gen_graph_strings():
     graphs = ['erdos', 'barabasi']
     edges = ['bernoulli', 'gaussian']
-    param1 = ['uniform', 'power']
-    param2 = ['uniform', 'power', 'inorder', 'inverse']
+    param1 = ['uniform', 'gaussian']
+    param2 = ['uniform', 'gaussian', 'inorder', 'inverse']
 
     results = []
     for g in graphs:
@@ -41,26 +41,30 @@ def gen_params(graph_type=None, edge_distrib=None, param1_distrib=None, param2_d
         # bernoulli weight parameter
         'bernoulli': {
             'uniform': {'min': 0, 'max': 1000, 'discrete': True},
-            'power': {'alpha': 2, 'max_int': 100, 'discrete': True}
+            'gaussian': {'mu': 100, 'sigma': 50/3, 'discrete': True, 'min': 0}
+            # 'power': {'alpha': 2, 'max_int': 100, 'discrete': True}
         },
         # gaussian mean parameter
         'gaussian': {
             'uniform': {'min': 0, 'max': 1000, 'discrete': False},
-            'power': {'alpha': 2, 'max_int': 1000, 'discrete': False}
+            'gaussian': {'mu': 100, 'sigma': 50/3, 'discrete': False, 'min': 0}
+            # 'power': {'alpha': 2, 'max_int': 1000, 'discrete': False}
         }
     }
     p2 = {
         # bernoulli probability parameter
         'bernoulli': {
             'uniform': {'min': 0, 'max': 1, 'discrete': False},
-            'power': {'alpha': 2, 'max_int': 1, 'discrete': False},
+            'gaussian': {'mu': 0.5, 'sigma': 0.5/3, 'discrete': False, 'min': 0, 'max': 1},
+            # 'power': {'alpha': 2, 'max_int': 1, 'discrete': False},
             'inorder': {},
             'inverse': {}
         },
         # gaussian variance parameter
         'gaussian': {
             'uniform': {'min': 0, 'max': 100, 'discrete': False},
-            'power': {'alpha': 2, 'max_int': 50, 'discrete': False},
+            'gaussian': {'mu': 50, 'sigma': 25/3, 'discrete': False, 'min': 0},
+            # 'power': {'alpha': 2, 'max_int': 50, 'discrete': False},
             'inorder': {},
             'inverse': {}
         }
@@ -87,9 +91,9 @@ def run_experiment(graph, intervals, edge_distrib):
 
 def main():
     intervals = 20
-    g_experiments = 1 # number of samples
-    p1_experiments = 1 # number of samples
-    p2_experiments = 10 # number of samples
+    g_experiments = 2 # number of samples
+    p1_experiments = 2 # number of samples
+    p2_experiments = 2 # number of samples
 
     graphs = gen_graph_strings() # all combinations of graph parameters
     # total iterations = graph types w/o inorder and inverse param + graph types w/ inorder and inverse param
@@ -98,7 +102,7 @@ def main():
     # Note: takes between ~25-35 secs for each iteration
     # TODO: vary the parameters eg. alpha values
     total_time = 0
-    for g_idx, graph_type in enumerate(graphs):
+    for g_idx, graph_type in enumerate(graphs[2:]):
         g, e, p1, p2 = parse(graph_type) # graph parameters
         for g_sample in range(g_experiments):
             g_param, _, _ = gen_params(graph_type=g)
@@ -112,6 +116,7 @@ def main():
                     if (p2 == 'inorder' or p2 == 'inverse') and p2_sample > 0:
                         break
                     _, _, p2_param = gen_params(edge_distrib=e, param2_distrib=p2)
+                    print(e, p1, p2)
                     graph_p1_p2 = gg.gen_attrib(graph_p1, e, param2_distrib=p2, param2=p2_param)
 
                     print(g_idx, graph_type, g_sample, p1_sample, p2_sample)

@@ -1,9 +1,12 @@
 from collections import defaultdict
 import numpy as np
 import time
+import warnings
 
 # arbitrary constant
 MAX_MATCHING = float('inf')
+np.seterr(all='raise')
+warnings.filterwarnings('error')
 
 class Hypergraph:
     def __init__(self, data, prob=None, weight=None, \
@@ -56,10 +59,14 @@ class Hypergraph:
             for entry in edges:
                 if entry[self._weight] == 0: entry[self._weight] = self._epsilon
                 if entry[self._prob] == 1: entry[self._prob] = 1 - self._epsilon
-                std = entry[self._weight] * np.sqrt(entry[self._prob] * (1 - entry[self._prob])) # std = w(sqrt(p(1-p)))
-                entry[self._alpha] = entry[self._weight] * entry[self._prob] / std # alpha = wp / std
-                entry[self._exp_weight] = entry[self._prob] * entry[self._weight]
-                entry[self._std] = self.calc_standard_dev([entry], distrib)
+                if entry[self._prob] == 0: entry[self._prob] = self._epsilon
+                try:
+                    std = entry[self._weight] * np.sqrt(entry[self._prob] * (1 - entry[self._prob])) # std = w(sqrt(p(1-p)))
+                    entry[self._alpha] = entry[self._weight] * entry[self._prob] / std # alpha = wp / std
+                    entry[self._exp_weight] = entry[self._prob] * entry[self._weight]
+                    entry[self._std] = self.calc_standard_dev([entry], distrib)
+                except FloatingPointError:
+                    raise('Error w/ attribute values. Cannot calculate standard deivation and/or alpha: {}'.format(entry))
         return edges
 
     def print_stats(self, stats, threshold=None):
@@ -117,8 +124,9 @@ class Hypergraph:
         threshold_vals = None
         _, stats = self.max_matching()
         maxi = int(np.ceil(stats['std']))
-        mini = maxi//intervals
-        threshold_vals = [round(val) for val in np.linspace(maxi,mini,intervals)]
+        mini = 0
+        # mini = maxi//intervals
+        threshold_vals = [round(val) for val in np.linspace(maxi,mini,intervals+1)]
         print('Generating beta thresholds: {}'.format(threshold_vals))
         return threshold_vals
 

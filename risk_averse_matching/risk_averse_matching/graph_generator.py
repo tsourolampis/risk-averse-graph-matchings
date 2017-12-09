@@ -20,14 +20,14 @@ def __ba_graph(n, m, seed=None):
     return nx.barabasi_albert_graph(n,m,seed=seed)
 
 # uniform at random distribution
-def __uar_generator(low, high, size, integer=True, seed=None):
+def __uar_param_generator(low, high, size, integer=True, seed=None):
     np.random.seed(seed) # debugging
     if integer:
         return np.random.randint(low, high+1, size)
     return np.random.uniform(low, high, size)
 
 # power law distribution
-def __pl_generator(alpha, size, max_int=1,integer=False, epsilon=1, seed=None):
+def __pl_param_generator(alpha, size, max_int=1,integer=False, epsilon=1, seed=None):
     '''
     NOTE: can't seed generator
     '''
@@ -37,6 +37,13 @@ def __pl_generator(alpha, size, max_int=1,integer=False, epsilon=1, seed=None):
         maxi = (100 - epsilon)/np.float64(100)
         s = [x/np.float64(100) if x <100 else maxi for x in s]
     return s
+
+def __gaus_param_generator(mu, sigma, size, min_thresh=None, min_val=None, max_thresh=None, max_val=None, seed=None):
+    np.random.seed(seed)
+    sample = np.random.normal(mu, sigma, size)
+    if min_thresh is not None and min_thresh is not None: sample[sample < min_thresh] = min_val
+    if max_thresh is not None and max_thresh is not None: sample[sample > max_thresh] = max_val
+    return sample
 
 def __bern_generator(weight, weight_params, prob, prob_params, size, edge_list=None, seed=None):
     '''
@@ -53,9 +60,11 @@ def __bern_generator(weight, weight_params, prob, prob_params, size, edge_list=N
     '''
     try:
         if weight == UAR:
-            weight_vals = __uar_generator(weight_params['min'], weight_params['max'], size, weight_params['discrete'], seed=seed)
+            weight_vals = __uar_param_generator(weight_params['min'], weight_params['max'], size, weight_params['discrete'], seed=seed)
         elif weight == PL:
-            weight_vals = __pl_generator(weight_params['alpha'], size, weight_params['max_int'], weight_params['discrete'], seed=seed)
+            weight_vals = __pl_param_generator(weight_params['alpha'], size, weight_params['max_int'], weight_params['discrete'], seed=seed)
+        elif weight == GAUS:
+            weight_vals = __gaus_param_generator(weight_params['mu'], weight_params['sigma'], size, min_thresh=0, min_val=weight_params['min'])
         else:
             weight_vals = None
     except:
@@ -64,10 +73,11 @@ def __bern_generator(weight, weight_params, prob, prob_params, size, edge_list=N
 
     try:
         if prob == UAR:
-            prob_vals = __uar_generator(0, 1, size, prob_params['discrete'], seed)
+            prob_vals = __uar_param_generator(0, 1, size, prob_params['discrete'], seed)
         elif prob == PL:
-            prob_vals = __pl_generator(prob_params['alpha'], size, prob_params['max_int'], prob_params['discrete'], seed=seed)
-
+            prob_vals = __pl_param_generator(prob_params['alpha'], size, prob_params['max_int'], prob_params['discrete'], seed=seed)
+        elif prob == GAUS:
+            prob_vals = __gaus_param_generator(prob_params['mu'], prob_params['sigma'], size, min_thresh=0, min_val=prob_params['min'], max_thresh=1, max_val=prob_params['max'])
         elif prob == 'inorder':
             # TODO: how to set constant?
             if weight_vals:
@@ -75,7 +85,7 @@ def __bern_generator(weight, weight_params, prob, prob_params, size, edge_list=N
                 total = sum(np.sqrt(weight) for weight in weight_vals)
                 prob_vals = [weight**c/total for weight in weight_vals]
             elif not weight_vals and edge_list:
-                c = 1
+                c = 2
                 total = sum(np.sqrt(edge['weight']) for edge in edge_list)
                 prob_vals = [edge['weight']**c/total for edge in edge_list]
             else:
@@ -87,7 +97,7 @@ def __bern_generator(weight, weight_params, prob, prob_params, size, edge_list=N
                 total = sum(np.sqrt(weight) for weight in weight_vals)
                 prob_vals = [(1 - (weight**c/total)) for weight in weight_vals]
             elif not weight_vals and edge_list:
-                c = 1
+                c = 2
                 total = sum(np.sqrt(edge['weight']) for edge in edge_list)
                 prob_vals = [(1- (edge['weight']**c/total)) for edge in edge_list]
             else:
@@ -115,9 +125,11 @@ def __gaus_generator(mean, mean_params, var, var_params, size, edge_list=None, s
     '''
     try:
         if mean == UAR:
-            mean_vals = __uar_generator(mean_params['min'], mean_params['max'],  size, mean_params['discrete'], seed)
+            mean_vals = __uar_param_generator(mean_params['min'], mean_params['max'],  size, mean_params['discrete'], seed)
         elif mean == PL:
-            mean_vals = __pl_generator(mean_params['alpha'], size, mean_params['max_int'], mean_params['discrete'], seed=seed)
+            mean_vals = __pl_param_generator(mean_params['alpha'], size, mean_params['max_int'], mean_params['discrete'], seed=seed)
+        elif mean == GAUS:
+            mean_vals = __gaus_param_generator(mean_params['mu'], mean_params['sigma'], size, min_thresh=0, min_val=mean_params['min'])
         else:
             mean_vals = None
     except:
@@ -126,9 +138,11 @@ def __gaus_generator(mean, mean_params, var, var_params, size, edge_list=None, s
 
     try:
         if var == UAR:
-            var_vals = __uar_generator(var_params['min'], var_params['max'], size, var_params['discrete'], seed)
+            var_vals = __uar_param_generator(var_params['min'], var_params['max'], size, var_params['discrete'], seed)
         elif var == PL:
-            var_vals = __pl_generator(var_params['alpha'], size, var_params['max_int'], var_params['discrete'], seed=seed)
+            var_vals = __pl_param_generator(var_params['alpha'], size, var_params['max_int'], var_params['discrete'], seed=seed)
+        elif var == GAUS:
+            var_vals = __gaus_param_generator(var_params['mu'], var_params['sigma'], size, min_thresh=0,min_val=var_params['min'])
         elif var == 'inorder':
             # TODO: how to set constant?
             if mean_vals:
@@ -187,6 +201,7 @@ def gen_attrib(edge_list, edge_distrib=BERN, param1_distrib=None, param1=None, p
 
     elif edge_distrib == GAUS:
         mean_vals, var_vals = __gaus_generator(param1_distrib, param1, param2_distrib, param2, edge_count, edge_list, seed)
+        print(param1_distrib, param1, param2_distrib, param2, edge_count, seed)
         for idx, edge in enumerate(edge_list):
             if param1_distrib: edge['expected_weight'] = mean_vals[idx]
             if param2_distrib: edge['variance'] = var_vals[idx]
