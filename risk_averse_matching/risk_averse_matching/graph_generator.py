@@ -34,7 +34,7 @@ def __pl_param_generator(alpha, size, max_int=1,integer=False, epsilon=1, seed=N
     distr = pl.Power_Law(xmax=max_int, parameters=[alpha], discrete=integer)
     s = distr.generate_random(size)
     if max_int == 1:
-        maxi = (100 - epsilon)/np.float64(100)
+        maxi = 1
         s = [x/np.float64(100) if x <100 else maxi for x in s]
     return s
 

@@ -52,16 +52,23 @@ class Hypergraph:
             for entry in edges:
                 entry[self._weight] = 0
                 entry[self._prob] = 0
-                entry[self._alpha] = entry[self._exp_weight]/np.sqrt(entry[self._var])
+                if entry[self._var] != 0:
+                    entry[self._alpha] = entry[self._exp_weight]/np.sqrt(entry[self._var])
+                else:
+                    entry[self._alpha] = entry[self._exp_weight]/np.sqrt(self._epsilon)
                 entry[self._std] = self.calc_standard_dev([entry], distrib)
         # given weight and probability, generate alpha, exp weight, and standard dev
         else:
             for entry in edges:
-                if entry[self._weight] == 0: entry[self._weight] = self._epsilon
-                if entry[self._prob] == 1: entry[self._prob] = 1 - self._epsilon
-                if entry[self._prob] == 0: entry[self._prob] = self._epsilon
+                w = entry[self._weight] if entry[self._weight] > 0 else self._epsilon
+                if entry[self._prob] == 0:
+                    p = self._epsilon
+                elif entry[self._prob] == 1:
+                    p = 1 - self._epsilon
+                else:
+                    p = entry[self._prob]
                 try:
-                    std = entry[self._weight] * np.sqrt(entry[self._prob] * (1 - entry[self._prob])) # std = w(sqrt(p(1-p)))
+                    std = w * np.sqrt(p * (1 - p)) # std = w(sqrt(p(1-p)))
                     entry[self._alpha] = entry[self._weight] * entry[self._prob] / std # alpha = wp / std
                     entry[self._exp_weight] = entry[self._prob] * entry[self._weight]
                     entry[self._std] = self.calc_standard_dev([entry], distrib)
@@ -126,7 +133,7 @@ class Hypergraph:
         maxi = int(np.ceil(stats['std']))
         mini = 0
         # mini = maxi//intervals
-        threshold_vals = [round(val) for val in np.linspace(maxi,mini,intervals+1)]
+        threshold_vals = [round(val) for val in np.linspace(mini,maxi,intervals+1)]
         print('Generating beta thresholds: {}'.format(threshold_vals))
         return threshold_vals
 

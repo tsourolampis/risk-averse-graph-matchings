@@ -83,17 +83,19 @@ def run_experiment(graph, intervals, edge_distrib):
     # bounded variance matching
     beta_thresholds = g.gen_betas(intervals)
     bv_results = []
+    bv_matching_results = []
     for beta in beta_thresholds:
-        _, bv_stat = g.bounded_var_matching(beta, edge_distrib)
+        bv_matching, bv_stat = g.bounded_var_matching(beta, edge_distrib)
         bv_results.append(bv_stat)
+        bv_matching_results.append(bv_matching)
         g.print_stats(bv_stat, beta)
-    return max_stat, bv_results
+    return max_stat, bv_results, bv_matching_results
 
 def main():
     intervals = 20
-    g_experiments = 2 # number of samples
-    p1_experiments = 2 # number of samples
-    p2_experiments = 2 # number of samples
+    g_experiments = 4 # number of samples
+    p1_experiments = 4 # number of samples
+    p2_experiments = 4 # number of samples
 
     graphs = gen_graph_strings() # all combinations of graph parameters
     # total iterations = graph types w/o inorder and inverse param + graph types w/ inorder and inverse param
@@ -102,7 +104,7 @@ def main():
     # Note: takes between ~25-35 secs for each iteration
     # TODO: vary the parameters eg. alpha values
     total_time = 0
-    for g_idx, graph_type in enumerate(graphs[2:]):
+    for g_idx, graph_type in enumerate(graphs):
         g, e, p1, p2 = parse(graph_type) # graph parameters
         for g_sample in range(g_experiments):
             g_param, _, _ = gen_params(graph_type=g)
@@ -127,7 +129,7 @@ def main():
                     avg_p2 = sum(e[p2_attrib] for e in graph_p1_p2)/len(graph_p1_p2)
                     print('{} avg {} and {} avg {}'.format(avg_p1, p1_attrib, avg_p2, p2_attrib))
 
-                    max_stats, bv_stats = run_experiment(graph_p1_p2, intervals, e)
+                    max_stats, bv_stats, bv_matchings = run_experiment(graph_p1_p2, intervals, e)
                     path = 'data/synthetic-graphs/{}-{}-{}-{}_{}{}{}/'.format(\
                             g, e, p1, p2, g_sample, p1_sample, p2_sample)
                     print('Finished finding bounded variance matchings')
@@ -136,6 +138,8 @@ def main():
                     pickle.dump(max_stats, open(f, 'wb'))
                     f = path + 'bv_stats.pkl'
                     pickle.dump(bv_stats, open(f, 'wb'))
+                    f = path + 'bv_matchings.pkl'
+                    pickle.dump(bv_matchings, open(f, 'wb'))
 
                     t = time.time() - start
                     total_time += t

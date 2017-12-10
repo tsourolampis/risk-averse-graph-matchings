@@ -9,6 +9,7 @@ def mkdir_subdirec(sub_direc):
     os.makedirs(full_path, exist_ok=True)
 
 def run_experiment(graph, intervals, edge_distrib):
+    # path = 'data/dblp/results/'
     g = hm.Hypergraph(graph, 'probability', 'citations', distrib=edge_distrib)
     # maximum matching
     _, max_stat = g.max_matching()
@@ -17,9 +18,11 @@ def run_experiment(graph, intervals, edge_distrib):
     # bounded variance matching
     beta_thresholds = g.gen_betas(intervals)
     bv_results = []
-    for beta in beta_thresholds:
-        _, bv_stat = g.bounded_var_matching(beta, edge_distrib)
+    for idx, beta in enumerate(beta_thresholds):
+        bv_matching, bv_stat = g.bounded_var_matching(beta, edge_distrib)
         bv_results.append(bv_stat)
+        # f = path + 'bv_matchings-{}.pkl'.format(idx)
+        # pickle.dump(bv_matching, open(f, 'wb'))
         g.print_stats(bv_stat, beta)
     return max_stat, bv_results
 
@@ -41,6 +44,7 @@ def main():
     pickle.dump(max_stats, open(f, 'wb'))
     f = path + 'bv_stats.pkl'
     pickle.dump(bv_stats, open(f, 'wb'))
+
 
     t = time.time() - start
     print('{} total_time\n'.format(t))
