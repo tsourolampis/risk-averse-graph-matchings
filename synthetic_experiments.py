@@ -16,6 +16,9 @@ def gen_graph_strings():
     graphs = ['erdos', 'barabasi']
     edges = ['bernoulli', 'gaussian']
     param1 = ['uniform', 'gaussian']
+    # param2 is used to set the variances for Gaussian, and probabilities for Bernoulli
+    # inorder: variance prop to mean 
+    # inverse: high mean, low variance and vice versa 
     param2 = ['uniform', 'gaussian', 'inorder', 'inverse']
 
     results = []

@@ -79,26 +79,26 @@ def __bern_generator(weight, weight_params, prob, prob_params, size, edge_list=N
         elif prob == GAUS:
             prob_vals = __gaus_param_generator(prob_params['mu'], prob_params['sigma'], size, min_thresh=0, min_val=prob_params['min'], max_thresh=1, max_val=prob_params['max'])
         elif prob == 'inorder':
+            c = 0.5
             # TODO: how to set constant?
             if weight_vals:
-                c = 2 if weight == UAR else 0.5
-                total = sum(np.sqrt(weight) for weight in weight_vals)
+                #c = 2 if weight == UAR else 0.5
+                total = sum( weight**c for weight in weight_vals) 
+                #total = sum(np.sqrt(weight) for weight in weight_vals)
                 prob_vals = [weight**c/total for weight in weight_vals]
             elif not weight_vals and edge_list:
-                c = 2
-                total = sum(np.sqrt(edge['weight']) for edge in edge_list)
+                total = sum(edge['weight']**c) for edge in edge_list)
                 prob_vals = [edge['weight']**c/total for edge in edge_list]
             else:
                 raise('generating only "inorder" probability requires an edge_list')
 
         elif prob == 'inverse':
             if weight_vals:
-                c = 2 if weight == UAR else 0.5
-                total = sum(np.sqrt(weight) for weight in weight_vals)
+                #c = 2 if weight == UAR else 0.5
+                total = sum(weight**c for weight in weight_vals)
                 prob_vals = [(1 - (weight**c/total)) for weight in weight_vals]
             elif not weight_vals and edge_list:
-                c = 2
-                total = sum(np.sqrt(edge['weight']) for edge in edge_list)
+                total = sum(edge['weight']**c for edge in edge_list)
                 prob_vals = [(1- (edge['weight']**c/total)) for edge in edge_list]
             else:
                 raise('generating ONLY "inverse" probability requires an edge_list')

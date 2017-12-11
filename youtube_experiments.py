@@ -59,9 +59,9 @@ def run_experiment(graph, intervals, edge_distrib):
     return max_stat, bv_results
 
 def main():
-    path = 'data/youtube'
+    path = 'data/'
     print('Loading in youtube data...')
-    f = '{}/{}'.format(path, 'youtube.pkl')
+    f = '{}/{}'.format(path, 'youtube_2.pkl')
     graph = pickle.load( open(f, 'rb'))
     print('Starting experiment on {} graph with {} edges'.format(f, len(graph)))
 
