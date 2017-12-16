@@ -15,11 +15,12 @@ def mkdir_subdirec(sub_direc):
 def gen_graph_strings():
     graphs = ['erdos', 'barabasi']
     edges = ['bernoulli', 'gaussian']
-    param1 = ['uniform', 'gaussian']
+    param1 = ['uniform', 'gaussian', 'power']
     # param2 is used to set the variances for Gaussian, and probabilities for Bernoulli
-    # inorder: variance prop to mean 
-    # inverse: high mean, low variance and vice versa 
-    param2 = ['uniform', 'gaussian', 'inorder', 'inverse']
+    # inorder: variance prop to mean
+    # inverse: high mean, low variance and vice versa
+    param2 = ['power', 'inorder', 'inverse']
+    # param2 = ['uniform', 'gaussian', 'inorder', 'inverse']
 
     results = []
     for g in graphs:
@@ -44,14 +45,14 @@ def gen_params(graph_type=None, edge_distrib=None, param1_distrib=None, param2_d
         # bernoulli weight parameter
         'bernoulli': {
             'uniform': {'min': 0, 'max': 1000, 'discrete': True},
-            'gaussian': {'mu': 100, 'sigma': 50/3, 'discrete': True, 'min': 0}
-            # 'power': {'alpha': 2, 'max_int': 100, 'discrete': True}
+            'gaussian': {'mu': 100, 'sigma': 50/3, 'discrete': True, 'min': 0},
+            'power': {'alpha': 2, 'max_int': 100, 'discrete': True}
         },
         # gaussian mean parameter
         'gaussian': {
             'uniform': {'min': 0, 'max': 1000, 'discrete': False},
-            'gaussian': {'mu': 100, 'sigma': 50/3, 'discrete': False, 'min': 0}
-            # 'power': {'alpha': 2, 'max_int': 1000, 'discrete': False}
+            'gaussian': {'mu': 100, 'sigma': 50/3, 'discrete': False, 'min': 0},
+            'power': {'alpha': 2, 'max_int': 1000, 'discrete': False}
         }
     }
     p2 = {
@@ -59,7 +60,7 @@ def gen_params(graph_type=None, edge_distrib=None, param1_distrib=None, param2_d
         'bernoulli': {
             'uniform': {'min': 0, 'max': 1, 'discrete': False},
             'gaussian': {'mu': 0.5, 'sigma': 0.5/3, 'discrete': False, 'min': 0, 'max': 1},
-            # 'power': {'alpha': 2, 'max_int': 1, 'discrete': False},
+            'power': {'alpha': 2, 'max_int': 1, 'discrete': False},
             'inorder': {},
             'inverse': {}
         },
@@ -67,7 +68,7 @@ def gen_params(graph_type=None, edge_distrib=None, param1_distrib=None, param2_d
         'gaussian': {
             'uniform': {'min': 0, 'max': 100, 'discrete': False},
             'gaussian': {'mu': 50, 'sigma': 25/3, 'discrete': False, 'min': 0},
-            # 'power': {'alpha': 2, 'max_int': 50, 'discrete': False},
+            'power': {'alpha': 2, 'max_int': 50, 'discrete': False},
             'inorder': {},
             'inverse': {}
         }

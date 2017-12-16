@@ -3,6 +3,7 @@ from risk_averse_matching import graph_generator as gg
 import os
 import time
 import pickle
+import copy
 
 def parse(filename):
     return filename.split('-')
@@ -15,7 +16,7 @@ def mkdir_subdirec(sub_direc):
 def gen_edge_strings():
     edges = ['bernoulli', 'gaussian']
     param1 = 'none'
-    param2 = ['uniform', 'power', 'inorder', 'inverse']
+    param2 = ['uniform', 'power', 'gaussian', 'inorder', 'inverse']
 
     results = []
     for e in edges:
@@ -29,6 +30,7 @@ def gen_params(edge_distrib=None, param2_distrib=None):
         'bernoulli': {
             'uniform': {'min': 0, 'max': 1, 'discrete': False},
             'power': {'alpha': 2, 'max_int': 1, 'discrete': False},
+            'gaussian': {'mu': 0.5, 'sigma': 0.5/3, 'discrete': False, 'min': 0, 'max': 1},
             'inorder': {},
             'inverse': {}
         },
@@ -36,6 +38,7 @@ def gen_params(edge_distrib=None, param2_distrib=None):
         'gaussian': {
             'uniform': {'min': 0, 'max': 100, 'discrete': False},
             'power': {'alpha': 2, 'max_int': 50, 'discrete': False},
+            'gaussian': {'mu': 5, 'sigma': 5/6, 'discrete': False, 'min': 0},
             'inorder': {},
             'inverse': {}
         }
@@ -59,22 +62,24 @@ def run_experiment(graph, intervals, edge_distrib):
     return max_stat, bv_results
 
 def main():
-    path = 'data/'
+    path = 'data/youtube'
     print('Loading in youtube data...')
-    f = '{}/{}'.format(path, 'youtube_2.pkl')
-    graph = pickle.load( open(f, 'rb'))
-    print('Starting experiment on {} graph with {} edges'.format(f, len(graph)))
-
+    f = '{}/{}'.format(path, 'youtube.pkl')
+    graph_bern = pickle.load( open(f, 'rb'))
+    graph_gaus = []
+    for edge in graph_bern:
+        e_copy = copy.deepcopy(edge)
+        e_copy ['expected_weight'] = e_copy ['weight']
+        e_copy .pop('weight', None)
+        graph_gaus.append(e_copy)
+    print('length of gaussian graph {}'.format(len(graph_gaus)))
     intervals = 20
     p2_experiments = 5 # number of samples
-
     total_time = 0
     edge_types = gen_edge_strings() # all combinations of graph parameters
-    for e_idx, edge_type in enumerate(edge_types):
+    print('Starting experiment on {} graph with {} edges'.format(f, len(graph_bern)))
+    for e_idx, edge_type in enumerate(edge_types[5:]):
         e, p1, p2 = parse(edge_type) # graph parameters
-        if e == 'gaussian':
-            for edge in graph:
-                edge['expected_weight'] = edge['weight']
         for p2_sample in range(p2_experiments):
             # skip 'inorder' and 'inverse' after 1 iteration
             if (p2 == 'inorder' or p2 == 'inverse') and p2_sample > 0:
@@ -82,9 +87,12 @@ def main():
 
             start = time.time()
             p2_param = gen_params(edge_distrib=e, param2_distrib=p2)
-            graph_p1_p2 = gg.gen_attrib(graph, e, param2_distrib=p2, param2=p2_param)
+            if e == 'bernoulli':
+                graph_p1_p2 = gg.gen_attrib(graph_bern, e, param2_distrib=p2, param2=p2_param)
+            elif e == 'gaussian':
+                graph_p1_p2 = gg.gen_attrib(graph_gaus, e, param2_distrib=p2, param2=p2_param)
 
-            print(e_idx, edge_type, p2_sample)
+            print(e_idx, edge_type, p2_sample, len(graph_p1_p2))
             print('{} edges in synthethic graph. first edge: {}'.format(len(graph_p1_p2), graph_p1_p2[0]))
             p1_attrib = 'weight' if e == 'bernoulli' else 'expected_weight'
             p2_attrib = 'probability' if e == 'bernoulli' else 'variance'

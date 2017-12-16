@@ -27,10 +27,11 @@ def __uar_param_generator(low, high, size, integer=True, seed=None):
     return np.random.uniform(low, high, size)
 
 # power law distribution
-def __pl_param_generator(alpha, size, max_int=1,integer=False, epsilon=1, seed=None):
+def __pl_param_generator(alpha, size, max_int=1,integer=False, seed=None):
     '''
     NOTE: can't seed generator
     '''
+    np.random.seed(seed)
     distr = pl.Power_Law(xmax=max_int, parameters=[alpha], discrete=integer)
     s = distr.generate_random(size)
     if max_int == 1:
@@ -83,20 +84,21 @@ def __bern_generator(weight, weight_params, prob, prob_params, size, edge_list=N
             # TODO: how to set constant?
             if weight_vals:
                 #c = 2 if weight == UAR else 0.5
-                total = sum( weight**c for weight in weight_vals) 
+                total = sum( w**c for w in weight_vals)
                 #total = sum(np.sqrt(weight) for weight in weight_vals)
-                prob_vals = [weight**c/total for weight in weight_vals]
+                prob_vals = [w**c/total for w in weight_vals]
             elif not weight_vals and edge_list:
-                total = sum(edge['weight']**c) for edge in edge_list)
+                total = sum((edge['weight']**c) for edge in edge_list)
                 prob_vals = [edge['weight']**c/total for edge in edge_list]
             else:
                 raise('generating only "inorder" probability requires an edge_list')
 
         elif prob == 'inverse':
+            c = 0.5
             if weight_vals:
                 #c = 2 if weight == UAR else 0.5
-                total = sum(weight**c for weight in weight_vals)
-                prob_vals = [(1 - (weight**c/total)) for weight in weight_vals]
+                total = sum(w**c for w in weight_vals)
+                prob_vals = [(1 - (w**c/total)) for w in weight_vals]
             elif not weight_vals and edge_list:
                 total = sum(edge['weight']**c for edge in edge_list)
                 prob_vals = [(1- (edge['weight']**c/total)) for edge in edge_list]
@@ -212,7 +214,7 @@ def gen_attrib(edge_list, edge_distrib=BERN, param1_distrib=None, param1=None, p
     return edge_list
 
 
-def gen_graph_attrib(vertices, graph_prob, graph=ER, edge_distrib=BERN, param1_distrib=UAR, param1=None, param2_distrib=UAR, param2=None, assign='random', seed=None):
+def gen_graph_attrib(vertices, graph_prob, graph=ER, edge_distrib=BERN, param1_distrib=UAR, param1=None, param2_distrib=UAR, param2=None, seed=None):
     '''
     Generate a graph and its edge attributes
     '''
