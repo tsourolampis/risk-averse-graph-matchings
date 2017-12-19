@@ -52,7 +52,6 @@ class Hypergraph:
         '''
         # given mean (exp_weight) and variance, generate alpha and standard dev
         if distrib == 'gaussian':
-            print('gaussian edges')
             for entry in edges:
                 entry[self._weight] = 0
                 entry[self._prob] = 0
@@ -66,7 +65,6 @@ class Hypergraph:
                     #entry[self._alpha] = entry[self._exp_weight]/np.sqrt(self._epsilon)
                     # given weight and probability, generate alpha, exp weight, and standard dev
         elif distrib == 'bernoulli':
-            print('bernoulli edges')
             for entry in edges:
                 w = self._epsilon if entry[self._weight] == 0 else entry[self._weight]
                 if entry[self._prob] == 0:
@@ -143,7 +141,7 @@ class Hypergraph:
         maxi = int(np.ceil(stats['std']))
         mini = 0
         # mini = maxi//intervals
-        threshold_vals = [round(val) for val in np.linspace(maxi,mini,intervals+1)]
+        threshold_vals = [round(val) for val in np.linspace(mini, maxi,intervals+1)]
         print('Generating beta thresholds: {}'.format(threshold_vals))
         return threshold_vals
 
