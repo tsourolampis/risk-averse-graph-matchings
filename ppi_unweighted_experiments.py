@@ -8,17 +8,20 @@ def mkdir_subdirec(sub_direc):
     full_path = '{}/{}'.format(abs_path, sub_direc)
     os.makedirs(full_path, exist_ok=True)
 
-def run_experiment(graph, intervals, edge_distrib, path=None):
+def run_experiment(graph, intervals, edge_distrib, path=None, beta_var=False):
     g = hm.Hypergraph(graph, 'probability', 'weight', 'edge', distrib=edge_distrib)
     # maximum matching
     _, max_stat = g.max_matching()
     print('Maximum matching')
     g.print_stats(max_stat)
     # bounded variance matching
-    beta_thresholds = g.gen_betas(intervals)
+    beta_thresholds = g.gen_betas(intervals, beta_var=beta_var)
     bv_results = []
     for idx, beta in enumerate(beta_thresholds):
-        bv_matching, bv_stat = g.bounded_var_matching(beta, edge_distrib)
+        if beta_var:
+            bv_matching, bv_stat = g.bounded_var_matching(beta, edge_distrib)
+        else:
+            bv_matching, bv_stat = g.bounded_std_matching(beta, edge_distrib)
         bv_results.append(bv_stat)
         if path:
             f = path + 'bv_matchings-{}.pkl'.format(idx)
@@ -36,9 +39,10 @@ def main():
     start = time.time()
     edge_distrib = 'bernoulli'
     intervals = 20
-    path = path + '/results/'
+    beta_var = True
+    path = '{}/results-variance/'.format(path) if beta_var else '{}/results-standard-deviation/'.format(path)
     mkdir_subdirec(path)
-    max_stats, bv_stats = run_experiment(graph, intervals, edge_distrib, path)
+    max_stats, bv_stats = run_experiment(graph, intervals, edge_distrib, path, beta_var=beta_var)
     print('Finished finding bounded variance matchings')
     f = path + 'max_stats.pkl'
     pickle.dump(max_stats, open(f, 'wb'))

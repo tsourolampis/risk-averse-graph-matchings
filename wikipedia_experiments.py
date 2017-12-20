@@ -14,8 +14,8 @@ def mkdir_subdirec(sub_direc):
 
 def gen_edge_strings():
     edges = ['bernoulli', 'gaussian']
-    param1 = ['uniform', 'power']
-    param2 = ['uniform', 'power', 'inorder', 'inverse']
+    param1 = ['uniform', 'power', 'gaussian']
+    param2 = ['uniform', 'power', 'gaussian', 'inorder', 'inverse']
 
     results = []
     for e in edges:
@@ -29,11 +29,13 @@ def gen_params(edge_distrib=None, param1_distrib=None, param2_distrib=None):
         # bernoulli weight parameter
         'bernoulli': {
             'uniform': {'min': 0, 'max': 1000, 'discrete': True},
+            'gaussian': {'mu': 100, 'sigma': 50/3, 'discrete': True, 'min': 0},
             'power': {'alpha': 2, 'max_int': 100, 'discrete': True}
         },
         # gaussian mean parameter
         'gaussian': {
             'uniform': {'min': 0, 'max': 1000, 'discrete': False},
+            'gaussian': {'mu': 100, 'sigma': 50/3, 'discrete': False, 'min': 0},
             'power': {'alpha': 2, 'max_int': 1000, 'discrete': False}
         }
     }
@@ -42,12 +44,14 @@ def gen_params(edge_distrib=None, param1_distrib=None, param2_distrib=None):
         'bernoulli': {
             'uniform': {'min': 0, 'max': 1, 'discrete': False},
             'power': {'alpha': 2, 'max_int': 1, 'discrete': False},
+            'gaussian': {'mu': 0.5, 'sigma': 0.5/3, 'discrete': False, 'min': 0, 'max': 1},
             'inorder': {},
             'inverse': {}
         },
         # gaussian variance parameter
         'gaussian': {
             'uniform': {'min': 0, 'max': 100, 'discrete': False},
+            'gaussian': {'mu': 50, 'sigma': 25/3, 'discrete': False, 'min': 0},
             'power': {'alpha': 2, 'max_int': 50, 'discrete': False},
             'inorder': {},
             'inverse': {}
@@ -75,13 +79,13 @@ def run_experiment(graph, intervals, edge_distrib):
 def main():
     path = 'data/wikipedia'
     print('Loading in wikipedia data...')
-    f = '{}/{}'.format(path, 'wikipedia_subset.pkl')
+    f = '{}/{}'.format(path, 'wikipedia.pkl')
     graph = pickle.load( open(f, 'rb'))
     print('Starting experiment on {} graph with {} edges'.format(f, len(graph)))
 
     intervals = 20
-    p1_experiments = 5 # number of samples
-    p2_experiments = 5 # number of samples
+    p1_experiments = 3 # number of samples
+    p2_experiments = 3 # number of samples
 
     total_time = 0
     edge_types = gen_edge_strings() # all combinations of graph parameters

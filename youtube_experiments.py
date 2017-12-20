@@ -16,7 +16,7 @@ def mkdir_subdirec(sub_direc):
 def gen_edge_strings():
     edges = ['bernoulli', 'gaussian']
     param1 = 'none'
-    param2 = ['uniform', 'power', 'gaussian', 'inorder', 'inverse']
+    param2 = ['uniform', 'gaussian', 'power', 'inorder', 'inverse']
 
     results = []
     for e in edges:
@@ -46,18 +46,23 @@ def gen_params(edge_distrib=None, param2_distrib=None):
     param2_vals = p2[edge_distrib][param2_distrib] if param2_distrib else None
     return param2_vals
 
-def run_experiment(graph, intervals, edge_distrib):
+def run_experiment(graph, intervals, edge_distrib, path=None, beta_var=False):
     g = hm.Hypergraph(graph, 'probability', 'weight', distrib=edge_distrib)
     # maximum matching
     _, max_stat = g.max_matching()
     print('Maximum matching')
     g.print_stats(max_stat)
     # bounded variance matching
-    beta_thresholds = g.gen_betas(intervals)
+    beta_thresholds = g.gen_betas(intervals, beta_var=beta_var)
     bv_results = []
-    for beta in beta_thresholds:
-        _, bv_stat = g.bounded_var_matching(beta, edge_distrib)
+    for idx, beta in enumerate(beta_thresholds):
+        if beta_var:
+            bv_matching, bv_stat = g.bounded_var_matching(beta, edge_distrib)
+        else:
+            bv_matching, bv_stat = g.bounded_std_matching(beta, edge_distrib)
         bv_results.append(bv_stat)
+        if path is not None:
+            pickle.dump(bv_matching, open('{}/bv_matchings-{}.pkl'.format(path, idx), 'wb'))
         g.print_stats(bv_stat, beta)
     return max_stat, bv_results
 
@@ -75,10 +80,11 @@ def main():
     print('length of gaussian graph {}'.format(len(graph_gaus)))
     intervals = 20
     p2_experiments = 5 # number of samples
+    beta_var=True
     total_time = 0
     edge_types = gen_edge_strings() # all combinations of graph parameters
     print('Starting experiment on {} graph with {} edges'.format(f, len(graph_bern)))
-    for e_idx, edge_type in enumerate(edge_types[5:]):
+    for e_idx, edge_type in enumerate(edge_types):
         e, p1, p2 = parse(edge_type) # graph parameters
         for p2_sample in range(p2_experiments):
             # skip 'inorder' and 'inverse' after 1 iteration
@@ -100,9 +106,8 @@ def main():
             avg_p2 = sum(e[p2_attrib] for e in graph_p1_p2)/len(graph_p1_p2)
             print('{} avg {} and {} avg {}'.format(avg_p1, p1_attrib, avg_p2, p2_attrib))
 
-            max_stats, bv_stats = run_experiment(graph_p1_p2, intervals, e)
-            path = 'data/youtube/results/youtub-{}-{}-{}_{}/'.format(\
-                    e, p1, p2, p2_sample)
+            max_stats, bv_stats = run_experiment(graph_p1_p2, intervals, e, beta_var=beta_var)
+            path = 'data/youtube/results-variance/youtube-{}-{}-{}_{}/'.format(e, p1, p2, p2_sample) if beta_var else 'data/youtube/results-standard-deviation/youtub-{}-{}-{}_{}/'.format(e, p1, p2, p2_sample)
             print('Finished finding bounded variance matchings')
             mkdir_subdirec(path)
             f = path + 'max_stats.pkl'

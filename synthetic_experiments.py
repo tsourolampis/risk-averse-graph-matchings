@@ -19,8 +19,7 @@ def gen_graph_strings():
     # param2 is used to set the variances for Gaussian, and probabilities for Bernoulli
     # inorder: variance prop to mean
     # inverse: high mean, low variance and vice versa
-    param2 = ['power', 'inorder', 'inverse']
-    # param2 = ['uniform', 'gaussian', 'inorder', 'inverse']
+    param2 = ['uniform', 'gaussian', 'power', 'inorder', 'inverse']
 
     results = []
     for g in graphs:
@@ -78,28 +77,32 @@ def gen_params(graph_type=None, edge_distrib=None, param1_distrib=None, param2_d
     param2_vals = p2[edge_distrib][param2_distrib] if param2_distrib else None
     return graph_vals, param1_vals, param2_vals
 
-def run_experiment(graph, intervals, edge_distrib):
+def run_experiment(graph, intervals, edge_distrib, path=None, beta_var=False):
     g = hm.Hypergraph(graph, 'probability', 'weight', distrib=edge_distrib)
     # maximum matching
     _, max_stat = g.max_matching()
     print('Maximum matching')
     g.print_stats(max_stat)
     # bounded variance matching
-    beta_thresholds = g.gen_betas(intervals)
+    beta_thresholds = g.gen_betas(intervals, beta_var=beta_var)
     bv_results = []
-    bv_matching_results = []
-    for beta in beta_thresholds:
-        bv_matching, bv_stat = g.bounded_var_matching(beta, edge_distrib)
+    for idx, beta in enumerate(beta_thresholds):
+        if beta_var:
+            bv_matching, bv_stat = g.bounded_var_matching(beta, edge_distrib)
+        else:
+            bv_matching, bv_stat = g.bounded_std_matching(beta, edge_distrib)
         bv_results.append(bv_stat)
-        bv_matching_results.append(bv_matching)
+        if path is not None:
+            pickle.dump(bv_matching, open('{}/bv_matchings-{}.pkl'.format(path, idx), 'wb'))
         g.print_stats(bv_stat, beta)
-    return max_stat, bv_results, bv_matching_results
+    return max_stat, bv_results
 
 def main():
     intervals = 20
     g_experiments = 4 # number of samples
     p1_experiments = 4 # number of samples
     p2_experiments = 4 # number of samples
+    beta_var = True
 
     graphs = gen_graph_strings() # all combinations of graph parameters
     # total iterations = graph types w/o inorder and inverse param + graph types w/ inorder and inverse param
@@ -133,17 +136,14 @@ def main():
                     avg_p2 = sum(e[p2_attrib] for e in graph_p1_p2)/len(graph_p1_p2)
                     print('{} avg {} and {} avg {}'.format(avg_p1, p1_attrib, avg_p2, p2_attrib))
 
-                    max_stats, bv_stats, bv_matchings = run_experiment(graph_p1_p2, intervals, e)
-                    path = 'data/synthetic-graphs/{}-{}-{}-{}_{}{}{}/'.format(\
-                            g, e, p1, p2, g_sample, p1_sample, p2_sample)
+                    max_stats, bv_stats = run_experiment(graph_p1_p2, intervals, e, beta_var=beta_var)
+                    path = 'data/synthetic-graphs-variance/{}-{}-{}-{}_{}{}{}/'.format(g, e, p1, p2, g_sample, p1_sample, p2_sample) if beta_var else 'data/synthetic-graphs-standard-deviation/{}-{}-{}-{}_{}{}{}/'.format(g, e, p1, p2, g_sample, p1_sample, p2_sample)
                     print('Finished finding bounded variance matchings')
                     mkdir_subdirec(path)
                     f = path + 'max_stats.pkl'
                     pickle.dump(max_stats, open(f, 'wb'))
                     f = path + 'bv_stats.pkl'
                     pickle.dump(bv_stats, open(f, 'wb'))
-                    f = path + 'bv_matchings.pkl'
-                    pickle.dump(bv_matchings, open(f, 'wb'))
 
                     t = time.time() - start
                     total_time += t

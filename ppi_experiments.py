@@ -42,19 +42,22 @@ def gen_params(edge_distrib=None, param1_distrib=None):
     param1_vals = p1[edge_distrib][param1_distrib] if param1_distrib else None
     return param1_vals
 
-def run_experiment(graph, intervals, edge_distrib, path=None):
+def run_experiment(graph, intervals, edge_distrib, path=None, beta_var=False):
     g = hm.Hypergraph(graph, 'probability', 'weight', 'edge', distrib=edge_distrib)
     # maximum matching
     _, max_stat = g.max_matching()
     print('Maximum matching')
     g.print_stats(max_stat)
     # bounded variance matching
-    beta_thresholds = g.gen_betas(intervals)
+    beta_thresholds = g.gen_betas(intervals, beta_var=beta_var)
     bv_results = []
     for idx, beta in enumerate(beta_thresholds):
-        bv_matching , bv_stat = g.bounded_var_matching(beta, edge_distrib)
+        if beta_var:
+            bv_matching , bv_stat = g.bounded_var_matching(beta, edge_distrib)
+        else:
+            bv_matching , bv_stat = g.bounded_std_matching(beta, edge_distrib)
         bv_results.append(bv_stat)
-        if path:
+        if path is not None:
             f = path + 'bv_matchings-{}.pkl'.format(idx)
             pickle.dump(bv_matching, open(f, 'wb'))
         g.print_stats(bv_stat, beta)
@@ -75,6 +78,7 @@ def main():
     intervals = 20
     p1_experiments = 5 # number of samples
     total_time = 0
+    beta_var = True
     edge_types = gen_edge_strings() # all combinations of graph parameters
     print('Starting experiment on {} graph with {} edges'.format(f, len(graph_bern), len(graph_gaus)))
     print(edge_types)
@@ -97,9 +101,9 @@ def main():
             avg_p2 = sum(e[p2_attrib] for e in graph_p1_p2)/len(graph_p1_p2)
             print('{} avg {} and {} avg {}'.format(avg_p1, p1_attrib, avg_p2, p2_attrib))
 
-            path = 'data/ppi/results/ppi-{}-{}-{}_{}/'.format(e, p1, p2, p1_sample)
+            path = 'data/ppi/results-variance/ppi-{}-{}-{}_{}/'.format(e, p1, p2, p1_sample) if beta_var else 'data/ppi/results-variance/ppi-{}-{}-{}_{}/'.format(e, p1, p2, p1_sample)
             mkdir_subdirec(path)
-            max_stats, bv_stats = run_experiment(graph_p1_p2, intervals, e)
+            max_stats, bv_stats = run_experiment(graph_p1_p2, intervals, e, beta_var=beta_var)
             print('Finished finding bounded variance matchings')
             f = path + 'max_stats.pkl'
             pickle.dump(max_stats, open(f, 'wb'))
