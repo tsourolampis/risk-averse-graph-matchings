@@ -9,117 +9,129 @@ np.seterr(all='raise')
 warnings.filterwarnings('error')
 
 class Hypergraph:
-    def __init__(self, data, prob=None, weight=None, edge='authors', \
-                    exp_weight='expected_weight', alpha='alpha', \
-                    var='variance', std='standard_deviation', \
-                    distrib='bernoulli', epsilon=0.01\
-                ):
-        '''
-        Initializes values and variables needed for finding matchings
-        data: list of dictionaries, each dictionary corresponds to a node
-        '''
-        # TODO: specify edge key
-        # Note: make default weight 1, default prob 1 standard unweighted certain graph
-        if not (prob or weight):
-            raise ValueError("Please indicate the probability and weight key in dict")
-        # edge dictionary keys
-        # TODO: clean up -> convert into a dict
-        self._weight = weight
-        self._prob = prob
-        self._edge = edge
-        self._exp_weight = exp_weight
-        self._alpha = alpha
-        self._var = var
-        self._std = std
-        self._distrib = distrib
-        self._epsilon = epsilon
+    edge = 'edge'
+    weight = 'weight'
+    probability = 'probability'
+    expected_weight = 'expected_weight'
+    variance = 'variance'
+    standard_deivation = 'standard_deviation'
+    alpha = 'alpha'
+    beta = 'beta'
+    edge_distribution = 'bernoulli'
+    edge_count = 'edges'
+    runtime = 'runtime'
+    epsilon = 0.01
+    variance_beta = False
 
-        # Generate expected weight, standard deviation, and alpha
-        data = self.__init_attributes(data, distrib)
+    def __setattr__(self, name, value):
+        # Only allowed pre-defined attributes above to be set
+        if hasattr(self, name):
+            super(Hypergraph, self).__setattr__(name, value)
+        else:
+            raise KeyError('Passed a bad key argument')
 
-        # data structures
+    def __repr__(self):
+        if self.edge_distribution == 'bernoulli':
+            edges = len(self.alpha_sorted)
+            avg_p1 = np.mean([e[self.weight] for e in self.alpha_sorted])
+            avg_p2 = np.mean([e[self.probability] for e in self.alpha_sorted])
+            return '{} edges in (hyper)graph w/ {} avg weight {} avg probability'.format(edges, avg_p1, avg_p2)
+        elif self.edge_distribution == 'gaussian':
+            edges = len(self.alpha_sorted)
+            avg_p1 = np.mean([e[self.expected_weight] for e in self.alpha_sorted])
+            avg_p2 = np.mean([e[self.variance] for e in self.alpha_sorted])
+            return '{} edges in (hyper)graph w/ {} avg weight {} avg probability'.format(edges, avg_p1, avg_p2)
+        else:
+            return 'Hypergraph has not been defined'
+
+    # TODO: make default weight 1, default prob 1 standard unweighted certain graph
+    def __init__(self, edge_list, variance_beta=False, **kwargs):
+        """
+        Initializes a (hyper)graph for finding bounded-variance matchings
+
+        :param edge_list list: list of dicts defining edges in a (hyper)graph
+        :param variance_beta bool: standard deviation (False) or variance (True) beta thresholds
+        :param \**kwargs: keyword arguments specifying keys for accessing values in 'edge_list'
+        :raises KeyError: specified incorrect key in **kwargs
+        :raises ValueError: bad edge values
+        """
+        # variance or standard dev risk-averse matching
+        self.variance_beta = variance_beta
+
+        # change default edge attributes
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+        # check that attributes in 'edge_list' have been defined
+        for key in edge_list[0].keys():
+            if not hasattr(self, key):
+                raise KeyError('Did not define attribute {} in **kwargs'.format(key))
+
+        # Generate expected weight, variance, standard deviation, and alpha
+        data = self.__init_attributes(edge_list, self.edge_distribution, variance_beta)
+
+        # data structures for finding matchings
         self.adj_list = defaultdict(lambda: defaultdict(int))
-        self.alpha_sorted = sorted(data, key=lambda d: (d[alpha], -d[prob]), reverse = True)
-        self.exp_weight_sorted = sorted(data, key=lambda d: d[exp_weight], reverse = True)
+        self.alpha_sorted = sorted(data, key=lambda d: (d[self.alpha], -d[self.probability]), reverse=True)
+        self.exp_weight_sorted = sorted(data, key=lambda d: d[self.expected_weight], reverse=True)
 
-        # store max matching in memory
-        # TODO: remove after testing is finished
-        self.mmatching = None
+    def __init_attributes(self, edges, distrib):
+        '''
+        Generate following edge attributes based on distribution of edge: expected weight,
+        variance, standard deviation, and alpha. Alpha values generated based
+        on based on standard deviation or variance
 
-    def __init_attributes(self, edges, distrib, beta_var=False):
+        Gaussian distributed edges should have mean and variance defined.
+        Bernoulli distributed edges should have weight and probability defined.
+
+        :param edges list: list of dicts defining edges in a (hyper)graph
+        :param distrib str: distribution of edges ('bernoulli' or 'gaussian')
+        :return: list of dicts w/ additional generated values
         '''
-        generate edge attributes based on distribution of edge
-        '''
-        # given mean (exp_weight) and variance, generate alpha and standard dev
+
         if distrib == 'gaussian':
             for entry in edges:
-                entry[self._weight] = 0
-                entry[self._prob] = 0
-                if entry[self._var] != 0:
-                    if beta_var:
-                        entry[self._alpha] = entry[self._exp_weight]/entry[self._var]
-                    else:
-                        entry[self._alpha] = entry[self._exp_weight]/np.sqrt(entry[self._var])
-                    entry[self._std] = self.calc_standard_dev([entry], distrib)
-                    entry[self._var] = self.calc_variance([entry], distrib)
+                entry[self.weight], entry[self.probability] = 0, 0
+                if entry[self.variance] != 0:
+                    beta = entry[self.variance] if self.variance_beta else np.sqrt(entry[self.variance])
+                    entry[self.alpha] = entry[self.expected_weight] / beta
+                    entry[self.standard_deviation] = self.calc_standard_dev([entry], distrib)
                 else:
-                    # we slightly perturb zero variance edges, alternatively these edges are included in all sub-hypergraphs generated by the algorithm, as they never hurt.
-                    entry[self._alpha] = float("inf")
-                    entry[self._std] = 0.0
-                    # given weight and probability, generate alpha, exp weight, and standard dev
+                    # we slightly perturb zero variance edges. alternatively these edges are
+                    # included in all sub-hypergraphs generated by the algorithm, as they never hurt.
+                    entry[self.alpha] = float("inf")
+                    entry[self.standard_deviation] = 0
         elif distrib == 'bernoulli':
             for entry in edges:
-                w = self._epsilon if entry[self._weight] == 0 else entry[self._weight]
-                if entry[self._prob] == 0:
-                    p = self._epsilon
-                elif entry[self._prob] == 1:
-                    p = 1 - self._epsilon
-                else:
-                    p = entry[self._prob]
-                try:
-                    if beta_var:
-                        var = (w**2 * (p * (1 - p))) # std = w(sqrt(p(1-p)))
-                        entry[self._alpha] = w * p / var # alpha = wp / std
-                    else:
-                        std = w * np.sqrt(p * (1 - p)) # std = w(sqrt(p(1-p)))
-                        entry[self._alpha] = w * p / std # alpha = wp / std
-                    entry[self._exp_weight] = entry[self._prob] * entry[self._weight]
-                    entry[self._std] = self.calc_standard_dev([entry], distrib)
-                    entry[self._var] = self.calc_variance([entry], distrib)
-                except FloatingPointError:
-                    raise KeyError('Error w/ attribute values. Cannot calculate standard deivation and/or alpha: {}'.format(entry))
+                # we slightly perturb zero weight edges and zero or one probability edges.
+                w = self.epsilon if entry[self.weight] == 0 else entry[self.weight]
+                p = self.epsilon if entry[self.probability] == 0 \
+                    else 1 - self.epsilon if entry[self.probability] == 1 \
+                    else entry[self.probability]
+
+                beta = (w**2 * (p * (1 - p))) if self.variance_beta else w * np.sqrt(p * (1 - p))
+                entry[self.alpha] = w * p / beta
+                entry[self.expected_weight] = entry[self.probability] * entry[self.weight]
+                entry[self.standard_deviation] = self.calc_standard_dev([entry], distrib)
+                entry[self.variance] = self.calc_variance([entry], distrib)
         else:
-            raise ValueError('init function')
+            raise ValueError('Only bernoulli and gaussian distributed edges supported')
+
         return edges
 
     def print_stats(self, stats, threshold=None):
-        try:
-            if threshold:
-                print('{} Beta Threshold: {} edges, {} weight, {} avg probability, {} exp_weight, {} std, {} var {} time'.format(\
-                    stats['beta'], stats['edges'], stats['weight'],round(stats['probability']/stats['edges'], 2), \
-                    round(stats['expected_weight'], 2), round(stats['std'], 2) , round(stats['variance'], 2) , round(round(stats['runtime'], 2))))
-            else:
-                print('{} edges, {} weight, {} avg probability, {} exp_weight, {} std, {} var, {} time'.format(\
-                    stats['edges'], stats['weight'],  round(stats['probability']/stats['edges'], 2), \
-                    round(stats['expected_weight'], 2), round(stats['std'], 2), round(stats['variance'], 2), round(stats['runtime'], 2)))
-        except ZeroDivisionError:
-            if threshold:
-                print('{} Beta Threshold: {} edges, {} weight, {} avg probability, {} exp_weight, {} std, {} var {} time'.format(\
-                    stats['beta'], stats['edges'], stats['weight'], stats['edges'], \
-                    round(stats['expected_weight'], 2), round(stats['std'], 2) , round(stats['variance'], 2) , round(round(stats['runtime'], 2))))
-            else:
-                print('{} edges, {} weight, {} avg probability, {} exp_weight, {} std, {} var, {} time'.format(\
-                    stats['edges'], stats['weight'],  stats['probability'], \
-                    round(stats['expected_weight'], 2), round(stats['std'], 2), round(stats['variance'], 2), round(stats['runtime'], 2)))
-
-
+        stats['probability'] = stats['probability']/stats['edges'] if stats['edges'] > 0 else 0
+        if threshold:
+            print('{self.beta:.2f} beta threshold {self.variance_beta} variance beta: {self.edge_count} edges, {self.weight} weight, {self.probabililty:.2f} avg probability, {self.expected_weight:2f} exp_weight, {self.standard_deviation:.2f} std, {self.variance:.2f} var {self.runtime:.2f} time'.format(**stats))
+        else:
+            print('{self.edge_count} edges, {self.weight} weight, {self.probabililty:.2f} avg probability, {self.expected_weight:2f} exp_weight, {self.standard_deviation:.2f} std, {self.variance:.2f} var {self.runtime:.2f} time'.format(**stats))
 
     def __add_adj_list(self, edges=None):
         '''
         Update adjacency list with specified additional edges (larger subgraph).
         If edges not specified, update adjacency list with all edges (entire graph)
-        @params:
-            edges: list of edges to update adjacency list with
+
+        :param edges list: list of edges to update adjacency list with
         '''
         if edges is None:
             if len(self.adj_list) > 0:
@@ -127,7 +139,7 @@ class Hypergraph:
             edges = self.exp_weight_sorted
 
         for edge in edges:
-            for author in edge[self._edge]:
+            for author in edge[self.edge]:
                 self.adj_list[author]['nodes'] += 1
                 self.adj_list[author]['matched'] = False
 
@@ -135,99 +147,87 @@ class Hypergraph:
         '''
         Update adjcancy list by removing specified edges (smaller subgraph)
         If edges not specified, remove all edges from adjacency list
-        @params:
-            edges: list of edges to remove from adjacency list
+
+        :param edges list : list of edges to remove from adjacency list
         '''
         if edges is None:
             self.adj_list = defaultdict(lambda: defaultdict(int))
             return
         for edge in edges:
-            for author in edge[self._edge]:
+            for author in edge[self.edge]:
                 self.adj_list[author]['nodes'] -= 1
                 if self.adj_list[author]['nodes'] == 0 :
                     self.adj_list.pop(author)
 
-    def gen_betas(self, intervals, beta_var=False):
+    def gen_betas(self, intervals):
         '''
         Generate evenly spaced intervals based on the standard deviation
-        @params:
-            intervals: Number of evenly spaced intervals
-        @returns:
-            threshold_vals: list of (beta) threshold values
+
+        :param intervals int: number of evenly spaced intervals
+        :return: list of (beta) threshold values
         '''
         threshold_vals = None
         _, stats = self.max_matching()
-        maxi = int(np.ceil(stats['std'])) if not beta_var else np.ceil(stats['variance'])
+        maxi = int(np.ceil(stats[self.variance])) if self.variance_beta else np.ceil(stats[self.standard_deivation])
         mini = 0
         threshold_vals = [round(val) for val in np.linspace(mini, maxi,intervals+1)]
-        print('Generating beta thresholds {}: {}'.format(beta_var, threshold_vals))
+        print('Generating beta thresholds (variance type {}): {}'.format(self.variance_beta, threshold_vals))
         return threshold_vals
 
-    def __greedy_matching(self, min_alpha, total_edges=None, threshold=None, threshold_var=False, distrib='bernoulli'):
-        # stored max matching returned if already found
-        # TODO: delete after testing finished
-        if min_alpha == MAX_MATCHING and self.mmatching is not None:
-            return self.mmatching
+    def __greedy_matching(self, min_alpha, total_edges=None, threshold=None):
+        '''
+        For all in the current subgraph 'self.adj_list' , find a
+        '''
         # greedy matching statistics
-        total_weight = 0
-        total_prob = 0
-        total_exp_weight = 0
-        total_std = 0
-        total_var = 0
+        matching_stats = defaultdict(int)
+        # total_weight = 0
+        # total_prob = 0
+        # total_exp_weight = 0
+        # total_std = 0
+        # total_var = 0
 
         matching_edges = []
-        vertex_removed = []
+        vertices_removed = []
+        exclude_attrib = set([self.alpha, self.edge])
         edge_count = 0
         for e in self.exp_weight_sorted:
             # skip edges with alpha < min alpha of current subgraph
-            if min_alpha != MAX_MATCHING and e[self._alpha] <= min_alpha:
+            if min_alpha != MAX_MATCHING and e[self.alpha] <= min_alpha:
                 continue
-
             edge_count += 1
-            # skip edge if its standard dev is greater than the current threshold
-            edge_std, edge_var = e[self._std], e[self._var]
-            if threshold and not threshold_var and edge_std > threshold:
+            # skip edge if its standard dev/variance is greater than the current threshold
+            beta = e[self.variance] if self.variance_beta else e[self.standard_deviation]
+            if threshold and beta > threshold:
                 continue
-            elif threshold and threshold_var and edge_var > threshold:
-                continue
-
-            # check if valid edge: all authors for hyperedge are still available
+            # check if valid edge; all authors for hyperedge are still available
             available = True
-            for author in e[self._edge]:
+            for author in e[self.edge]:
                 if self.adj_list[author]['matched']:
                     available = False
                     break
-            # edge is available for matching
             if available:
-                total_weight += e[self._weight]
-                total_prob += e[self._prob]
-                total_exp_weight += e[self._exp_weight]
-                total_std += edge_std
-                total_var += edge_var
+                for e_attrib, val in e.items():
+                    if e_attrib in exclude_attrib:
+                        continue
+                    matching_stats[e_attrib] = val
                 matching_edges.append(e)
                 # flag vertices that should not be considered
-                for author in e[self._edge]:
+                for author in e[self.edge]:
                     self.adj_list[author]['matched'] = True
-                    vertex_removed.append(author)
+                    vertices_removed.append(author)
             # breaks when all valid edges in subgraph have been considered
             # TODO: possible bug here
             if total_edges and edge_count == total_edges:
                 break
-
         # reset adjacency list
-        for author in vertex_removed:
+        for author in vertices_removed:
             self.adj_list[author]['matched'] = False
+        # TODO: delete
+        # return matching_edges, len(matching_edges), total_weight, total_prob, total_exp_weight, total_std, total_var
+        return matching_edges, len(matching_edges), matching_stats
 
-        # stores max matching to be reused later
-        # TODO: delete after testing finished
-        if min_alpha == MAX_MATCHING and self.mmatching is None:
-            self.mmatching = matching_edges, len(matching_edges), total_weight, total_prob, total_exp_weight, total_std, total_var
-
-        return matching_edges, len(matching_edges), total_weight, total_prob, total_exp_weight, total_std, total_var
-
-    def __bounded_matching(self, threshold, threshold_var, distrib):
+    def __bounded_matching(self, threshold, threshold_var):
         start = time.time()
-
         # initialize variables
         hi = len(self.alpha_sorted) - 1
         lo = 0
@@ -237,8 +237,8 @@ class Hypergraph:
 
         # Binary Search
         while True:
-            min_alpha = self.alpha_sorted[mid][self._alpha]
-            greedy_matching = self.__greedy_matching(min_alpha, total_edges=mid, threshold=threshold, threshold_var=threshold_var, distrib=distrib)
+            min_alpha = self.alpha_sorted[mid][self.alpha]
+            greedy_matching = self.__greedy_matching(min_alpha, total_edges=mid, threshold=threshold, threshold_var=threshold_var)
             matching_beta = greedy_matching[6] if threshold_var else greedy_matching[5] # variance else standard deviation
 
             if hi <= mid or lo >= mid:
@@ -258,16 +258,16 @@ class Hypergraph:
 
         #TODO: messy implementation of max output, fix it
         e_next = self.alpha_sorted[mid]
-        e_next_stats = [e_next], 1, e_next[self._weight], e_next[self._prob], e_next[self._exp_weight], e_next[self._std], e_next[self._var]
+        e_next_stats = [e_next], 1, e_next[self.weight], e_next[self.probability], e_next[self.expected_weight], e_next[self.standard_deviation], e_next[self.variance]
         _, e_next_stats = self.gen_stats_dict(e_next_stats, 0, threshold)
-        return max((matching, stats), ([e_next], e_next_stats), key=lambda x: x[1][self._exp_weight])
+        return max((matching, stats), ([e_next], e_next_stats), key=lambda x: x[1][self.expected_weight])
 
 
-    def bounded_var_matching(self, threshold, distrib='bernoulli'):
-        return self.__bounded_matching(threshold, True, distrib)
+    def bounded_var_matching(self, threshold):
+        return self.__bounded_matching(threshold, True)
 
-    def bounded_std_matching(self, threshold, distrib='bernoulli'):
-        return self.__bounded_matching(threshold, False, distrib)
+    def bounded_std_matching(self, threshold):
+        return self.__bounded_matching(threshold, False)
 
     def max_matching(self):
         '''
@@ -306,23 +306,24 @@ class Hypergraph:
                 'runtime': total_time
         }
         if beta is not None:
+            stats['variance_beta'] = self.variance_beta
             stats['beta'] = beta
         return matching, stats
 
     # Standard deviation
     def calc_standard_dev(self, edges, distrib):
         if distrib == 'gaussian':
-            return sum(np.sqrt(e[self._var]) for e in edges) # sqrt(variance)
+            return sum(np.sqrt(e[self.variance]) for e in edges) # sqrt(variance)
         elif distrib == 'bernoulli':
-            return sum(e[self._weight] * np.sqrt(e[self._prob] * (1-e[self._prob])) for e in edges) # w(sqrt(p(1-p)))
+            return sum(e[self.weight] * np.sqrt(e[self.probability] * (1-e[self.probability])) for e in edges) # w(sqrt(p(1-p)))
         else:
             raise ValueError("Only gaussian and bernoulli are supported")
 
     def calc_variance(self, edges, distrib):
         if distrib == 'gaussian':
-            return sum(e[self._var] for e in edges) # variance
+            return sum(e[self.variance] for e in edges) # variance
         elif distrib == 'bernoulli':
-            return sum(e[self._weight]**2 * e[self._prob] * (1-e[self._prob]) for e in edges) # w^2(p(1-p))
+            return sum(e[self.weight]**2 * e[self.probability] * (1-e[self.probability]) for e in edges) # w^2(p(1-p))
         else:
             raise ValueError("Only gaussian and bernoulli are supported")
 
