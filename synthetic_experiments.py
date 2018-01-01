@@ -78,19 +78,18 @@ def gen_params(graph_type=None, edge_distrib=None, param1_distrib=None, param2_d
     return graph_vals, param1_vals, param2_vals
 
 def run_experiment(graph, intervals, edge_distrib, path=None, beta_var=False):
-    g = hm.Hypergraph(graph, 'probability', 'weight', distrib=edge_distrib)
-    # maximum matching
+    g = hm.Hypergraph(graph, beta_var, edge_distribution=edge_distrib)
+    print(g)
+
+    print('maximum matching')
     _, max_stat = g.max_matching()
-    print('Maximum matching')
     g.print_stats(max_stat)
-    # bounded variance matching
-    beta_thresholds = g.gen_betas(intervals, beta_var=beta_var)
+
+    print('bounded variance matching')
+    beta_thresholds = g.gen_betas(intervals)
     bv_results = []
     for idx, beta in enumerate(beta_thresholds):
-        if beta_var:
-            bv_matching, bv_stat = g.bounded_var_matching(beta, edge_distrib)
-        else:
-            bv_matching, bv_stat = g.bounded_std_matching(beta, edge_distrib)
+        bv_matching, bv_stat = g.bounded_matching(beta)
         bv_results.append(bv_stat)
         if path is not None:
             pickle.dump(bv_matching, open('{}/bv_matchings-{}.pkl'.format(path, idx), 'wb'))

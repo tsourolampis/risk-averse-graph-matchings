@@ -1,12 +1,8 @@
 from collections import defaultdict
 import numpy as np
 import time
-import warnings
 
-# arbitrary constant
 MAX_MATCHING = float('inf')
-np.seterr(all='raise')
-warnings.filterwarnings('error')
 
 class Hypergraph:
     edge = 'edge'
@@ -168,7 +164,7 @@ class Hypergraph:
         '''
         threshold_vals = None
         _, stats = self.max_matching()
-        maxi = int(np.ceil(stats[self.variance])) if self.variance_beta else np.ceil(stats[self.standard_deivation])
+        maxi = int(np.ceil(stats[self.variance])) if self.variance_beta else np.ceil(stats[self.standard_deviation])
         mini = 0
         threshold_vals = [round(val) for val in np.linspace(mini, maxi,intervals+1)]
         print('Generating beta thresholds (variance type {}): {}'.format(self.variance_beta, threshold_vals))
@@ -176,30 +172,38 @@ class Hypergraph:
 
     def __greedy_matching(self, min_alpha, total_edges=None, threshold=None):
         '''
-        For all in the current subgraph 'self.adj_list' , find a
+        Find a maximal matching for a given specified subgraph (min alpha of subgraph)
+
+        Algorithm
+        ---------
+        For all edges in 'self.exp_weight_sorted' with alpha > min_alpha
+        find a maximal matching using a greedy approach that picks edges
+        in the order of highest expected weight. Using 'self.adj_list' to
+        keep track of whether vertices have been picked or not in matching.
+
+        :param min_alpha float: minimum alpha value of the subgraph
+        :param total_edges int: number of edges in the subgraph
+        :param threshold float: max beta threshold an edge should not exceed
+        :return: matching found, and matchings' statistics
         '''
         # greedy matching statistics
         matching_stats = defaultdict(int)
-        # total_weight = 0
-        # total_prob = 0
-        # total_exp_weight = 0
-        # total_std = 0
-        # total_var = 0
 
         matching_edges = []
         vertices_removed = []
         exclude_attrib = set([self.alpha, self.edge])
-        edge_count = 0
+        count = 0
         for e in self.exp_weight_sorted:
             # skip edges with alpha < min alpha of current subgraph
             if min_alpha != MAX_MATCHING and e[self.alpha] <= min_alpha:
                 continue
-            edge_count += 1
+
+            count += 1
             # skip edge if its standard dev/variance is greater than the current threshold
             beta = e[self.variance] if self.variance_beta else e[self.standard_deviation]
             if threshold and beta > threshold:
                 continue
-            # check if valid edge; all authors for hyperedge are still available
+            # check if valid edge ie. all authors for hyperedge are still available
             available = True
             for author in e[self.edge]:
                 if self.adj_list[author]['matched']:
@@ -217,29 +221,40 @@ class Hypergraph:
                     vertices_removed.append(author)
             # breaks when all valid edges in subgraph have been considered
             # TODO: possible bug here
-            if total_edges and edge_count == total_edges:
+            if total_edges and count == total_edges:
                 break
         # reset adjacency list
         for author in vertices_removed:
             self.adj_list[author]['matched'] = False
+
         # TODO: delete
         # return matching_edges, len(matching_edges), total_weight, total_prob, total_exp_weight, total_std, total_var
-        return matching_edges, len(matching_edges), matching_stats
+        matching_stats[self.edge_count] = len(matching_edges)
+        return matching_edges, matching_stats
 
-    def __bounded_matching(self, threshold, threshold_var):
+    def bounded_matching(self, threshold):
+        '''
+        Find a greedy matching on a subgraph s.t. greedy matching's total beta
+        (variance or standard dev beta specified in initialization) < specified
+        'threshold'. Uses binary search to find this subgraph.
+
+        Outputs the maximum expected weight of the greedy matching found and
+        the next edge that was not considered in the greedy matching.
+
+        :param threshold float: max beta of greedy matching
+        :return: matching found, matchings' statistics
+        '''
         start = time.time()
-        # initialize variables
         hi = len(self.alpha_sorted) - 1
         lo = 0
         mid = (hi + lo)//2
         self.__del_adj_list()
         self.__add_adj_list(self.alpha_sorted[:mid])
 
-        # Binary Search
         while True:
             min_alpha = self.alpha_sorted[mid][self.alpha]
-            greedy_matching = self.__greedy_matching(min_alpha, total_edges=mid, threshold=threshold, threshold_var=threshold_var)
-            matching_beta = greedy_matching[6] if threshold_var else greedy_matching[5] # variance else standard deviation
+            matching, stats = self.__greedy_matching(min_alpha, total_edges=mid, threshold=threshold)
+            matching_beta = stats[self.variance] if self.variance_beta else stats[self.standard_deviation]
 
             if hi <= mid or lo >= mid:
                 break
@@ -254,27 +269,25 @@ class Hypergraph:
                 mid = (hi+lo)//2
                 self.__del_adj_list(self.alpha_sorted[mid:hi])
         total_time = time.time() - start
-        matching, stats = self.gen_stats_dict(greedy_matching, total_time, threshold)
+        stats = self.gen_stats(total_time, threshold)
 
-        #TODO: messy implementation of max output, fix it
-        e_next = self.alpha_sorted[mid]
-        e_next_stats = [e_next], 1, e_next[self.weight], e_next[self.probability], e_next[self.expected_weight], e_next[self.standard_deviation], e_next[self.variance]
-        _, e_next_stats = self.gen_stats_dict(e_next_stats, 0, threshold)
+        #TODO: messy implementation, fix it
+        # Max of greedy matching and next edge that was not considered in greedy matching
+        e_next = list(self.alpha_sorted[mid])
+        exclude_attrib = set([self.alpha, self.edge])
+        e_next_stats = dict()
+        for e_attrib, val in e_next.items():
+            if e_attrib in exclude_attrib:
+                continue
+            e_next_stats[e_attrib] = val
+        e_next_stats = self.gen_stats(e_next_stats, 0, threshold)
         return max((matching, stats), ([e_next], e_next_stats), key=lambda x: x[1][self.expected_weight])
-
-
-    def bounded_var_matching(self, threshold):
-        return self.__bounded_matching(threshold, True)
-
-    def bounded_std_matching(self, threshold):
-        return self.__bounded_matching(threshold, False)
 
     def max_matching(self):
         '''
         Find a greedy matching on the entire graph
-        @returns:
-            matching: maximum greedy matching
-            stats : dictionary of maximum greedy matching statistics
+
+        :return: matching found, matchings' statsitics
         '''
         # initialize variables
         self.__del_adj_list()
@@ -283,34 +296,20 @@ class Hypergraph:
         start = time.time()
         greedy_matching = self.__greedy_matching(MAX_MATCHING)
         total_time = time.time() - start
-        matching, stats = self.gen_stats_dict(greedy_matching, total_time)
+        matching, stats = self.gen_stats(greedy_matching, total_time)
 
         return matching, stats
 
-    def gen_stats_dict(self, greedy_matching, total_time, beta=None):
+    def gen_stats(self, stats, total_time, threshold=None):
         '''
-        Create a dictionary for stats generated from greedy matching
-        @params:
-            greedy_matching: result returned from __greedy_matching()
-            total_time: runtime to run __greedy_matching()
-            bv_input: provide (gamma, beta) tuple for a bounded-variance matching
+        Add a runtime and threshold to stats of the greedy matching found
         '''
-        matching, size, weight, prob, exp_weight, std, var = greedy_matching
-        stats = {
-                'edges': size,
-                'weight': weight,
-                'probability': prob,
-                'expected_weight': exp_weight,
-                'std': std,
-                'variance': var,
-                'runtime': total_time
-        }
-        if beta is not None:
+        stats[self.runtime] = total_time
+        if threshold is not None:
+            stats[self.beta] = threshold
             stats['variance_beta'] = self.variance_beta
-            stats['beta'] = beta
-        return matching, stats
+        return stats
 
-    # Standard deviation
     def calc_standard_dev(self, edges, distrib):
         if distrib == 'gaussian':
             return sum(np.sqrt(e[self.variance]) for e in edges) # sqrt(variance)

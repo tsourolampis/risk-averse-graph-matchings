@@ -8,20 +8,19 @@ def mkdir_subdirec(sub_direc):
     full_path = '{}/{}'.format(abs_path, sub_direc)
     os.makedirs(full_path, exist_ok=True)
 
-def run_experiment(graph, intervals, edge_distrib,path=None, beta_var=False):
-    g = hm.Hypergraph(graph, 'probability', 'weight', distrib=edge_distrib)
-    # maximum matching
-    _, max_stat = g.max_matching()
+def run_experiment(graph, intervals, edge_distrib, path=None, beta_var=False):
+    g = hm.Hypergraph(graph, variance_beta=beta_var, edge_distribution='bernoulli')
+    print(g)
+
     print('Maximum matching')
+    _, max_stat = g.max_matching()
     g.print_stats(max_stat)
-    # bounded variance matching
-    beta_thresholds = g.gen_betas(intervals, beta_var=beta_var)
+
+    print('Bounded variance matchings')
+    beta_thresholds = g.gen_betas(intervals)
     bv_results = []
     for idx, beta in enumerate(beta_thresholds):
-        if beta_var:
-            bv_matching, bv_stat = g.bounded_var_matching(beta, edge_distrib)
-        else:
-            bv_matching, bv_stat = g.bounded_std_matching(beta, edge_distrib)
+        bv_matching, bv_stat = g.bounded_matching(beta)
         bv_results.append(bv_stat)
         if path is not None:
             f = path + 'bv_matchings-{}.pkl'.format(idx)
@@ -39,6 +38,7 @@ def main():
 
     start = time.time()
     edge_distrib = 'bernoulli'
+    # edge_distrib = 'gaussian'
     intervals = 20
     beta_var=False
     # path = path + '/results-v8-variance/' if beta_var else path + '/results-v8-standard-deviation/'

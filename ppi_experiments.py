@@ -43,19 +43,18 @@ def gen_params(edge_distrib=None, param1_distrib=None):
     return param1_vals
 
 def run_experiment(graph, intervals, edge_distrib, path=None, beta_var=False):
-    g = hm.Hypergraph(graph, 'probability', 'weight', 'edge', distrib=edge_distrib)
-    # maximum matching
+    g = hm.Hypergraph(graph, variance_beta=beta_var, edge_distribution=edge_distrib)
+    print(g)
+
+    print('maximum matching')
     _, max_stat = g.max_matching()
-    print('Maximum matching')
     g.print_stats(max_stat)
-    # bounded variance matching
+
+    print('bounded variance matching')
     beta_thresholds = g.gen_betas(intervals, beta_var=beta_var)
     bv_results = []
     for idx, beta in enumerate(beta_thresholds):
-        if beta_var:
-            bv_matching , bv_stat = g.bounded_var_matching(beta, edge_distrib)
-        else:
-            bv_matching , bv_stat = g.bounded_std_matching(beta, edge_distrib)
+        bv_matching , bv_stat = g.bounded_matching(beta)
         bv_results.append(bv_stat)
         if path is not None:
             f = path + 'bv_matchings-{}.pkl'.format(idx)
