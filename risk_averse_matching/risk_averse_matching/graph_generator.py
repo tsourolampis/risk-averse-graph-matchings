@@ -1,4 +1,3 @@
-# from scipy.stats import bernoulli
 import networkx as nx
 import numpy as np
 import powerlaw as pl
@@ -11,24 +10,30 @@ PL = 'power'
 GAUS = 'gaussian'
 BERN = 'bernoulli'
 
-# erdos renyi graph
 def __er_graph(n,p,seed=None):
+    '''
+    erdos renyi graph
+    '''
     return nx.fast_gnp_random_graph(n,p,seed=seed)
 
-# barabasi albert graph
 def __ba_graph(n, m, seed=None):
+    '''
+    barabasi albert graph
+    '''
     return nx.barabasi_albert_graph(n,m,seed=seed)
 
-# uniform at random distribution
 def __uar_param_generator(low, high, size, integer=True, seed=None):
+    '''
+    uniform at random distribution for sampling parameters
+    '''
     np.random.seed(seed) # debugging
     if integer:
         return np.random.randint(low, high+1, size)
     return np.random.uniform(low, high, size)
 
-# power law distribution
 def __pl_param_generator(alpha, size, max_int=1,integer=False, seed=None):
     '''
+    power law distribution for sampling parameters
     NOTE: can't seed generator
     '''
     np.random.seed(seed)
@@ -40,6 +45,9 @@ def __pl_param_generator(alpha, size, max_int=1,integer=False, seed=None):
     return s
 
 def __gaus_param_generator(mu, sigma, size, min_thresh=None, min_val=None, max_thresh=None, max_val=None, seed=None):
+    '''
+    gaussian distribution for sampling parameters
+    '''
     np.random.seed(seed)
     sample = np.random.normal(mu, sigma, size)
     if min_thresh is not None and min_thresh is not None: sample[sample < min_thresh] = min_val
@@ -48,14 +56,14 @@ def __gaus_param_generator(mu, sigma, size, min_thresh=None, min_val=None, max_t
 
 def __bern_generator(weight, weight_params, prob, prob_params, size, edge_list=None, seed=None):
     '''
-    Generate weighted bernoulli distributed edges by sampling probs and weights from uniform or power law distribution
+    Generate bernoulli distributed edges by sampling weights and probabilities from uniform or gaussian, or power law distribution
 
-   :param str prob: "uniform" or "power"
-   :param dict prob_params: w/ keys "min", "max", "discrete"
-   :param str weigh: "uniform" or "power"
-   :param dict weight_params: w/ keys "alpha", "max_int", "discrete"
-   :param int size: number of values to generate
-   :param int seed: seed generator
+   :param weight str : "uniform" or "power"
+   :param weight_params dict : w/ keys "alpha", "max_int", "discrete"
+   :param prob str : "uniform" or "power"
+   :param prob_params dict : w/ keys "min", "max", "discrete"
+   :param size int : number of values to generate
+   :param seed int : seed generator
    :return: mean_vals, var_vals
    :rtype: tuple(list, list)
     '''
@@ -83,9 +91,7 @@ def __bern_generator(weight, weight_params, prob, prob_params, size, edge_list=N
             c = 0.5
             # TODO: how to set constant?
             if weight_vals:
-                #c = 2 if weight == UAR else 0.5
                 total = sum( w**c for w in weight_vals)
-                #total = sum(np.sqrt(weight) for weight in weight_vals)
                 prob_vals = [w**c/total for w in weight_vals]
             elif not weight_vals and edge_list:
                 total = sum((edge['weight']**c) for edge in edge_list)
@@ -96,7 +102,6 @@ def __bern_generator(weight, weight_params, prob, prob_params, size, edge_list=N
         elif prob == 'inverse':
             c = 0.5
             if weight_vals:
-                #c = 2 if weight == UAR else 0.5
                 total = sum(w**c for w in weight_vals)
                 prob_vals = [(1 - (w**c/total)) for w in weight_vals]
             elif not weight_vals and edge_list:
@@ -114,14 +119,14 @@ def __bern_generator(weight, weight_params, prob, prob_params, size, edge_list=N
 
 def __gaus_generator(mean, mean_params, var, var_params, size, edge_list=None, seed=None):
     '''
-    Generate gaussian distributed edges by sampling means and variances from uniform or power law distribution
+    Generate gaussian distributed edges by sampling means and variances from uniform, gaussian, or power law distribution
 
-    :param str mean: "uniform" or "power"
-    :param dict mean_params: w/ keys "min", "max", "discrete"
-    :param str var: "uniform" or "power"
-    :param dict var_params: w/ keys "alpha", "max_int", "discrete"
-    :param int size: number of values to generate
-    :param int seed: seed generator
+    :param mean str : "uniform" or "power"
+    :param mean_params dict : w/ keys "min", "max", "discrete"
+    :param var str : "uniform" or "power"
+    :param var_params dict : w/ keys "alpha", "max_int", "discrete"
+    :param size int : number of values to generate
+    :param seed int : seed generator
     :return: mean_vals, var_vals
     :rtype: tuple(list, list)
     '''
@@ -174,6 +179,10 @@ def __gaus_generator(mean, mean_params, var, var_params, size, edge_list=None, s
 def gen_graph(graph, graph_params, seed=None):
     '''
     Generate only a graph give a graph type
+
+    :param graph str: "erdos" or "barabasi" graph model
+    :param graph_params dict: w/ keys 'vertices', and 'p'
+    :return: edge list
     '''
     try:
         vertices, graph_prob = graph_params['vertices'], graph_params['p']
@@ -185,12 +194,20 @@ def gen_graph(graph, graph_params, seed=None):
         raise ValueError('specify graph_params w/ keys "vertices" and "p"')
     edge_list = list(g.edges())
     random.shuffle(edge_list)
-    edge_list = [{'authors':[v1,v2]} for v1, v2 in edge_list]
+    edge_list = [{'edge':[v1,v2]} for v1, v2 in edge_list]
     return edge_list
 
 def gen_attrib(edge_list, edge_distrib=BERN, param1_distrib=None, param1=None, param2_distrib=None, param2=None, seed=None):
     '''
     Generate edge attributes given a graph and parameters of the edge attribute
+
+    :param edge_list list: list of edges (dicts)
+    :param edge_distrib str: "bernoulli" or "gaussian"
+    :param param1_distrib str: "uniform" or "gaussian"
+    :param param1 dict: parameters to sample weight or expected weight
+    :param param2_distrib str: "uniform" or "gaussian"
+    :param param2 dict: parameters to sample probability or variance
+    :return: edge list with edge attributes
     '''
 
     edge_count = len(edge_list)
@@ -214,41 +231,52 @@ def gen_attrib(edge_list, edge_distrib=BERN, param1_distrib=None, param1=None, p
     return edge_list
 
 
-def gen_graph_attrib(vertices, graph_prob, graph=ER, edge_distrib=BERN, param1_distrib=UAR, param1=None, param2_distrib=UAR, param2=None, seed=None):
+def gen_graph_attrib(graph, graph_params, edge_distrib, param1_distrib, param1, param2_distrib, param2, seed=None):
     '''
     Generate a graph and its edge attributes
+
+    :param graph str: "erdos" or "barabasi" graph model
+    :param graph_params dict: w/ keys 'vertices', and 'p'
+    :param edge_list list: list of edges (dicts)
+    :param edge_distrib str: "bernoulli" or "gaussian"
+    :param param1_distrib str: "uniform" or "gaussian"
+    :param param1 dict: parameters to sample weight or expected weight
+    :param param2_distrib str: "uniform" or "gaussian"
+    :param param2 dict: parameters to sample probability or variance
+    :return: edge list with edge attributes
     '''
-    g = None
-    if graph == ER:
-        g = __er_graph(vertices, graph_prob, seed)
-    else:
-        g = __ba_graph(vertices, int(vertices*graph_prob), seed) # 10 edges per node
+    try:
+        vertices, graph_prob = graph_params['vertices'], graph_params['p']
+        if graph == ER:
+            g = __er_graph(vertices, graph_prob, seed)
+        elif graph == BA:
+            g = __ba_graph(vertices, int(vertices*graph_prob)//2, seed) # (p*n)/2
+        else:
+            raise ValueError('Specify "erdos" or "barabasi" as graph model')
+    except KeyError:
+        raise KeyError('specify graph_params w/ keys "vertices" and "p"')
     edge_list = list(g.edges())
-    edge_count = len(g.edges())
     random.shuffle(edge_list)
+    edge_list = [{'edge':[v1,v2]} for v1, v2 in edge_list]
+    edge_count = len(edge_list)
 
-    # TODO: change edge key 'authors' to 'edge'
-    if edge_distrib == BERN:
-        weight_vals, prob_vals = __bern_generator(param1_distrib, param1, param2_distrib, param2, edge_count, seed)
-        for idx, edge in enumerate(edge_list):
-            e = {
-                'authors':list(edge),
-                'probability': prob_vals[idx],
-                'weight': weight_vals[idx]
-            }
-            edge_list[idx] = e
-
-    elif edge_distrib == GAUS:
-        mean_vals, var_vals = __gaus_generator(param1_distrib, param1, param2_distrib, param2, edge_count, seed)
-        for idx, edge in enumerate(edge_list):
-            e = {
-                'authors':list(edge),
-                'expected_weight': mean_vals[idx],
-                'variance': var_vals[idx]
-            }
-            edge_list[idx] = e
-    else:
-        raise ValueError('Specify a "bernoulli" or "gaussin" distribution')
-
+    try:
+        if edge_distrib == BERN:
+            weight_vals, prob_vals = __bern_generator(param1_distrib, param1, param2_distrib, param2, edge_count, edge_list, seed)
+            for idx, edge in enumerate(edge_list):
+                edge['weight'] = weight_vals[idx]
+                edge['probability'] = prob_vals[idx]
+                edge_list[idx] = edge
+        elif edge_distrib == GAUS:
+            mean_vals, var_vals = __gaus_generator(param1_distrib, param1, param2_distrib, param2, edge_count, edge_list, seed)
+            print(param1_distrib, param1, param2_distrib, param2, edge_count, seed)
+            for idx, edge in enumerate(edge_list):
+                edge['expected_weight'] = mean_vals[idx]
+                edge['variance'] = var_vals[idx]
+                edge_list[idx] = edge
+        else:
+            raise ValueError('Specify a "bernoulli" or "gaussin" distribution for the edge')
+    except KeyError:
+        raise KeyError('Specify parameters (uniform distribution) for sampling edge parameters (weight/probability) correctly. eg. for sampling weights from a uniform distribution, specify "min", "max", and "discrete" for param1')
     return edge_list
 
