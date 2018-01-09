@@ -1,7 +1,9 @@
 # Risk-Averse Matchings over Uncertain Graph Databases 
 
-
-Contains an installable module, risk-averse-matching, for finding a bounded-variance matching on a standard graph or hypergraph and generating synthetic graphs, edge weight, and edge probabilities. 
+Contains an installable module, risk-averse-matching, for finding a bounded-variance or bounded-standard deviation matching on a uncertain graph or hypergraph. Also contains module for generating synthetic graphs with the following attributes:
+- Erdos-Renyi, Barabasi-Albert graph models 
+- Bernoulli (weight and probability parameters), Gaussian (mean and variance parameters) distributed edges
+- Uniform, Gaussian, Power Law distributions to sample respective parameters w.r.t. to the edge distribution 
 
 ### Setup 
 
@@ -15,12 +17,6 @@ To use a virtualenv within jupyter notebook. Run the following command and switc
 ```shell 
 >>> python -m ipykernel install --user --name=venv
 ```
-
-### TODO
-- Update README w/ example code for generating synthetic graphs and running a matching 
-
-
-
 
 # Team 
 
